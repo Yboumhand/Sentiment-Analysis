@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Historique - Analyse des Sentiments{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-history"></i> Historique des Prédictions
+            </div>
+            <div class="card-body">
+                {% if predictions %}
+                    <div class="mb-3">
+                        <p class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Total : <strong>{{ predictions|length }}</strong> prédiction(s)
+                        </p>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%">#</th>
+                                    <th style="width: 50%">Texte</th>
+                                    <th style="width: 15%">Sentiment</th>
+                                    <th style="width: 15%">Confiance</th>
+                                    <th style="width: 15%">Date/Heure</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pred in predictions %}
+                                <tr>
+                                    <td>{{ loop.index }}</td>
+                                    <td>
+                                        <div style="max-width: 400px; overflow: hidden; text-overflow: ellipsis;">
+                                            {{ pred.text[:100] }}{% if pred.text|length > 100 %}...{% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if pred.sentiment == 'Positif' %}
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-smile"></i> Positif
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger">
+                                                <i class="fas fa-frown"></i> Négatif
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if pred.confidence %}
+                                            <div class="progress" style="height: 20px;">
+                                                <div class="progress-bar {% if pred.sentiment == 'Positif' %}bg-success{% else %}bg-danger{% endif %}"
+                                                     role="progressbar"
+                                                     style="width: {{ (pred.confidence * 100)|round(1) }}%"
+                                                     aria-valuenow="{{ (pred.confidence * 100)|round(1) }}"
+                                                     aria-valuemin="0"
+                                                     aria-valuemax="100">
+                                                    {{ (pred.confidence * 100)|round(1) }}%
+                                                </div>
+                                            </div>
+                                        {% else %}
+                                            <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ pred.timestamp.split('T')[0] }}<br>
+                                            {{ pred.timestamp.split('T')[1].split('.')[0] }}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Aucune prédiction dans l'historique</h5>
+                        <p class="text-muted">Commencez par analyser du texte sur la page d'accueil !</p>
+                        <a href="/" class="btn btn-primary mt-3">
+                            <i class="fas fa-home"></i> Retour à l'Accueil
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
