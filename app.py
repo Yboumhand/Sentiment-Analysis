@@ -2,12 +2,21 @@
 # app.py - APPLICATION FLASK PRINCIPALE
 # ============================================================================
 
+# gestion des warnings de scikit-learn (notamment pour les versions)
+import warnings
+from sklearn.exceptions import InconsistentVersionWarning
+
+warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+
+# Importations
 from flask import Flask, render_template, request, jsonify
 import pickle
 import numpy as np
 from datetime import datetime
 import json
 import os
+import warnings
+
 
 # Initialisation de l'application
 app = Flask(__name__)
