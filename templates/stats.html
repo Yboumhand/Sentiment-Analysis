@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Statistiques - Analyse des Sentiments{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Cartes de statistiques -->
+    <div class="col-md-3 mb-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="text-primary mb-0">{{ stats.total }}</h2>
+                <p class="text-muted mb-0">Total Analyses</p>
+                <i class="fas fa-chart-line fa-2x text-primary mt-2"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="text-success mb-0">{{ stats.positive }}</h2>
+                <p class="text-muted mb-0">Positifs</p>
+                <i class="fas fa-smile fa-2x text-success mt-2"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="text-danger mb-0">{{ stats.negative }}</h2>
+                <p class="text-muted mb-0">Négatifs</p>
+                <i class="fas fa-frown fa-2x text-danger mt-2"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 mb-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h2 class="text-info mb-0">{{ "%.1f"|format(stats.avg_confidence * 100) }}%</h2>
+                <p class="text-muted mb-0">Confiance Moy.</p>
+                <i class="fas fa-star fa-2x text-info mt-2"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Graphiques -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-pie-chart"></i> Distribution des Sentiments
+            </div>
+            <div class="card-body">
+                <canvas id="sentimentPieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-bar"></i> Répartition en Pourcentages
+            </div>
+            <div class="card-body">
+                <canvas id="sentimentBarChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Timeline (si données disponibles) -->
+{% if stats.total > 0 %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-chart-line"></i> Évolution des Prédictions
+            </div>
+            <div class="card-body">
+                <canvas id="timelineChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Données depuis le serveur
+    const stats = {{ stats|tojson }};
+
+    // Graphique en camembert
+    const pieCtx = document.getElementById('sentimentPieChart').getContext('2d');
+    new Chart(pieCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Positif', 'Négatif'],
+            datasets: [{
+                data: [stats.positive, stats.negative],
+                backgroundColor: [
+                    'rgba(81, 207, 102, 0.8)',
+                    'rgba(255, 107, 107, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(81, 207, 102, 1)',
+                    'rgba(255, 107, 107, 1)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                },
+                title: {
+                    display: true,
+                    text: 'Répartition des Sentiments',
+                    font: {
+                        size: 16
+                    }
+                }
+            }
+        }
+    });
+
+    // Graphique en barres
+    const barCtx = document.getElementById('sentimentBarChart').getContext('2d');
+    new Chart(barCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Positif', 'Négatif'],
+            datasets: [{
+                label: 'Nombre de prédictions',
+                data: [stats.positive, stats.negative],
+                backgroundColor: [
+                    'rgba(81, 207, 102, 0.6)',
+                    'rgba(255, 107, 107, 0.6)'
+                ],
+                borderColor: [
+                    'rgba(81, 207, 102, 1)',
+                    'rgba(255, 107, 107, 1)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: 'Comparaison des Sentiments',
+                    font: {
+                        size: 16
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+
+    // Timeline (charger les données via API)
+    {% if stats.total > 0 %}
+    async function loadTimelineData() {
+        try {
+            const response = await fetch('/api/history');
+            const data = await response.json();
+
+            // Préparer les données pour le graphique
+            const predictions = data.predictions.reverse(); // Plus ancien en premier
+            const labels = predictions.map((p, i) => `#${i + 1}`);
+            const positiveData = [];
+            const negativeData = [];
+
+            let posCount = 0;
+            let negCount = 0;
+
+            predictions.forEach(p => {
+                if (p.sentiment === 'Positif') {
+                    posCount++;
+                } else {
+                    negCount++;
+                }
+                positiveData.push(posCount);
+                negativeData.push(negCount);
+            });
+
+            const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+            new Chart(timelineCtx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Positif (cumulé)',
+                        data: positiveData,
+                        borderColor: 'rgba(81, 207, 102, 1)',
+                        backgroundColor: 'rgba(81, 207, 102, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }, {
+                        label: 'Négatif (cumulé)',
+                        data: negativeData,
+                        borderColor: 'rgba(255, 107, 107, 1)',
+                        backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Évolution Cumulative des Prédictions',
+                            font: {
+                                size: 16
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Erreur lors du chargement:', error);
+        }
+    }
+
+    loadTimelineData();
+    {% endif %}
+</script>
+{% endblock %}

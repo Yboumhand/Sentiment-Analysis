@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Accueil - Analyse des Sentiments{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Carte principale -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="fas fa-comment-dots"></i> Analysez le Sentiment de Votre Texte
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted mb-4">
+                    Entrez un avis, un commentaire ou tout texte en anglais pour découvrir son sentiment :
+                    <span class="badge bg-success">Positif</span> ou
+                    <span class="badge bg-danger">Négatif</span>
+                </p>
+
+                <form id="sentimentForm">
+                    <div class="mb-3">
+                        <label for="textInput" class="form-label">
+                            <i class="fas fa-pen"></i> Votre texte :
+                        </label>
+                        <textarea
+                            class="form-control"
+                            id="textInput"
+                            rows="5"
+                            placeholder="Ex: This product is amazing! I love it so much..."
+                            required
+                        ></textarea>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i>
+                            Minimum 10 caractères recommandés pour une meilleure analyse
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-magic"></i> Analyser le Sentiment
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Loading -->
+                <div class="loading mt-4" id="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Chargement...</span>
+                    </div>
+                    <p class="mt-2">Analyse en cours...</p>
+                </div>
+
+                <!-- Résultat -->
+                <div id="result" class="mt-4" style="display: none;">
+                    <hr>
+                    <h4 class="mb-3">
+                        <i class="fas fa-chart-line"></i> Résultat de l'Analyse
+                    </h4>
+
+                    <div id="sentimentResult"></div>
+
+                    <div id="confidenceResult" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exemples -->
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-lightbulb"></i> Exemples à Tester
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <button class="btn btn-outline-success w-100 example-btn" data-text="This product is absolutely fantastic! Best purchase I've made this year. Highly recommended!">
+                            <i class="fas fa-smile"></i> Exemple Positif
+                        </button>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <button class="btn btn-outline-danger w-100 example-btn" data-text="Terrible quality! Broke after one day. Complete waste of money. Very disappointed.">
+                            <i class="fas fa-frown"></i> Exemple Négatif
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistiques rapides -->
+<div class="row mt-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-number">{{ accuracy }}</div>
+            <div class="stat-label">Précision du Modèle</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-number">{{ f1_score }}</div>
+            <div class="stat-label">F1-Score</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-number" id="totalPredictions">0</div>
+            <div class="stat-label">Analyses Effectuées</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Soumission du formulaire
+    document.getElementById('sentimentForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const text = document.getElementById('textInput').value;
+        const loadingDiv = document.getElementById('loading');
+        const resultDiv = document.getElementById('result');
+
+        // Afficher loading
+        loadingDiv.style.display = 'block';
+        resultDiv.style.display = 'none';
+
+        try {
+            const response = await fetch('/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text: text })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                displayResult(data);
+                updateTotalPredictions();
+            } else {
+                alert('Erreur: ' + data.error);
+            }
+        } catch (error) {
+            alert('Erreur de connexion: ' + error);
+        } finally {
+            loadingDiv.style.display = 'none';
+        }
+    });
+
+    // Afficher le résultat
+    function displayResult(data) {
+        const resultDiv = document.getElementById('result');
+        const sentimentDiv = document.getElementById('sentimentResult');
+        const confidenceDiv = document.getElementById('confidenceResult');
+
+        // Sentiment
+        const isPositive = data.sentiment === 'Positif';
+        const sentimentClass = isPositive ? 'sentiment-positive' : 'sentiment-negative';
+        const icon = isPositive ? 'fa-smile-beam' : 'fa-frown';
+        const emoji = isPositive ? '😊' : '😞';
+
+        sentimentDiv.innerHTML = `
+            <div class="${sentimentClass}">
+                <h3 class="mb-0">
+                    <i class="fas ${icon}"></i>
+                    Sentiment : ${data.sentiment} ${emoji}
+                </h3>
+            </div>
+        `;
+
+        // Confiance
+        if (data.confidence !== null) {
+            const confidencePct = (data.confidence * 100).toFixed(1);
+            confidenceDiv.innerHTML = `
+                <label class="form-label">
+                    <i class="fas fa-chart-bar"></i>
+                    Confiance : <strong>${confidencePct}%</strong>
+                </label>
+                <div class="confidence-bar">
+                    <div class="confidence-fill" style="width: ${confidencePct}%">
+                        ${confidencePct}%
+                    </div>
+                </div>
+            `;
+        }
+
+        resultDiv.style.display = 'block';
+    }
+
+    // Exemples
+    document.querySelectorAll('.example-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('textInput').value = this.dataset.text;
+        });
+    });
+
+    // Mettre à jour le compteur
+    async function updateTotalPredictions() {
+        try {
+            const response = await fetch('/api/stats');
+            const data = await response.json();
+            document.getElementById('totalPredictions').textContent = data.total;
+        } catch (error) {
+            console.error('Erreur:', error);
+        }
+    }
+
+    // Charger au démarrage
+    updateTotalPredictions();
+</script>
+{% endblock %}
