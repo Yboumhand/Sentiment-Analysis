@@ -7,6 +7,7 @@ import warnings
 from sklearn.exceptions import InconsistentVersionWarning
 
 warnings.filterwarnings("ignore", category=InconsistentVersionWarning)
+warnings.filterwarnings("ignore", category=UserWarning, module='sklearn')
 
 # Importations
 from flask import Flask, render_template, request, jsonify
