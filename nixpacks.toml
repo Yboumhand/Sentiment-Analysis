@@ -1,0 +1,10 @@
+[phases.setup]
+nixPkgs = ["gcc", "g++", "python311"]
+
+[phases.install]
+cmds = [
+  "pip install --upgrade pip setuptools wheel",
+  "pip install Cython",
+  "pip install numpy scipy",
+  "pip install -r requirements.txt"
+]
